@@ -37,7 +37,17 @@ increment_id
 4. Convert back to string
 5. string.zfill(7-len(string))
 
+Example URL:
+http://www.omdbapi.com/?i=tt0000004
+
+where 'i' retrieves movie by IMDB ID
+
+API Key Example URL:
+http://www.omdbapi.com/?i=tt0000004&apikey=57c4a427
+
 '''
+
+
 
 import os
 import requests
@@ -46,6 +56,7 @@ import boto3
 api_url = "http://www.omdbapi.com/"
 api_key = os.getenv('API_KEY')
 
+# Not implemented yet
 def get_movie_data(start_id, end_id):
     start_id = "tt0000001"
     end_id = "tt0000020"
@@ -57,7 +68,7 @@ def get_movie_data(start_id, end_id):
 def increment_id(start_id, increment_amount):
     id_list = []
     inc_start_id = int(start_id.strip("tt"))
-
+    i = 0
     while i < increment_amount:
         inc_start_id += 1
         inc_start_id_str = str(inc_start_id)
@@ -66,3 +77,26 @@ def increment_id(start_id, increment_amount):
         i += 1
 
     return id_list
+
+# Crafts list of URLs for requesting, with IMDB ID embedded. Doesn't handle API Keys, which will be part of request function
+def url_generator(id_list,url):
+    url_list = []
+    for item in id_list:
+        url_list.append(url + '?i=' + item)
+
+    return url_list
+
+# Iterates through the previously-generated URL list, adding the appropriate API key in order to request the content. 
+# Returns a JSON-dictionary list. Each movie is a list index, represented as a JSON object.
+def request_movie(url_list, api_key):
+    response_list = []
+    for item in url_list:
+        print(item + "&" +'apikey={}'.format(api_key))
+        response = requests.get(item + "&" +'apikey={}'.format(api_key))
+        response_list.append(response.json())
+    return response_list
+        
+# Main run    
+id_list = increment_id("tt0000000", 20)
+url_list = url_generator(id_list, api_url)
+movie_content = request_movie(url_list, api_key)
