@@ -47,14 +47,13 @@ http://www.omdbapi.com/?i=tt0000004&apikey=57c4a427
 
 '''
 
-
-
 import os
 import requests
 import boto3
 
 api_url = "http://www.omdbapi.com/"
 api_key = os.getenv('API_KEY')
+g_ddb_client = boto3.client("dynamodb")
 
 # Not implemented yet
 def get_movie_data(start_id, end_id):
@@ -78,6 +77,50 @@ def increment_id(start_id, increment_amount):
 
     return id_list
 
+def create_table():
+    print("Creating DynamoDB Lock Table...")
+    response = g_ddb_client.create_table(
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'imdbID',
+                'AttributeType': 'S'
+            },
+        ],
+        TableName='movies',
+        KeySchema=[
+            { 
+                'AttributeName': 'imdbID',
+                'KeyType': 'HASH'
+            },
+        ],
+        BillingMode='PAY_PER_REQUEST'
+    )
+    check = g_ddb_client.describe_table(TableName='terraform')
+    '''
+    CreateTable is an asynchronous operation. Upon receiving a CreateTable request, DynamoDB immediately returns a response with a TableStatus of CREATING . 
+    After the table is created, DynamoDB sets the TableStatus to ACTIVE . You can perform read and write operations only on an ACTIVE table.
+    '''
+    # Check for ACTIVE status table after creation.
+    while True:
+        print("Polling for table creation status to go to Active...\n")
+        check = g_ddb_client.describe_table(TableName='terraform')
+        if check['Table']['TableStatus'] == 'ACTIVE':
+            break
+        time.sleep(3) 
+    print('Table created!\n')
+    return response
+
+
+# Create list of keys in movie response. We'll use this to create our table schema in Dynamo.
+def get_movie_attributes(movies):
+    attributes = []
+    for key in movies.keys():
+        attributes.append(key)
+
+    print(attributes)
+    return attributes
+
+
 # Crafts list of URLs for requesting, with IMDB ID embedded. Doesn't handle API Keys, which will be part of request function
 def url_generator(id_list,url):
     url_list = []
@@ -97,6 +140,10 @@ def request_movie(url_list, api_key):
     return response_list
         
 # Main run    
-id_list = increment_id("tt0000000", 20)
+id_list = increment_id("tt0000000", 3)
 url_list = url_generator(id_list, api_url)
 movie_content = request_movie(url_list, api_key)
+movie_attributes = get_movie_attributes(movie_content[0])
+create_table()
+
+
