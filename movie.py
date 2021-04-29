@@ -47,6 +47,13 @@ http://www.omdbapi.com/?i=tt0000004&apikey=57c4a427
 
 '''
 
+
+'''
+04/28 Notes:
+
+Should we create a Movie class - use movie_attributes as class 
+'''
+
 import os
 import requests
 import boto3
@@ -77,7 +84,7 @@ def increment_id(start_id, increment_amount):
 
     return id_list
 
-def create_table():
+def create_table(table_name):
     print("Creating DynamoDB Lock Table...")
     response = g_ddb_client.create_table(
         AttributeDefinitions=[
@@ -86,7 +93,7 @@ def create_table():
                 'AttributeType': 'S'
             },
         ],
-        TableName='movies',
+        TableName='{}'.format(table_name),
         KeySchema=[
             { 
                 'AttributeName': 'imdbID',
@@ -108,7 +115,64 @@ def create_table():
             break
         time.sleep(3) 
     print('Table created!\n')
-    return response
+    return table_name
+
+def update_table(content,table_name):
+    for item in content:
+        response = g_ddb_client.update_item(
+        TableName='{}'.format(table_name),
+        Key={
+            'imdbID': {'S': '{}'.format(item['imdbID'])}
+        },
+        UpdateExpression='SET Title = :title, \
+            MovieYear = :year, \
+            Rated = :rated, \
+            Released = :released, \
+            Runtime = :runtime, \
+            Genre = :genre, \
+            Director = :director, \
+            Writer = :writer, \
+            Actors = :actors, \
+            Plot = :plot, \
+            Lang = :lang, \
+            Country = :country, \
+            Awards = :awards, \
+            Poster = :poster, \
+            Metascore = :metascore, \
+            imdbRating = :imdbrating, \
+            imdbVotes = :imdbvotes, \
+            Content_Type = :content_type, \
+            DVD = :dvd, \
+            BoxOffice = :boxoffice, \
+            Production = :production, \
+            Website = :website',
+        ExpressionAttributeValues={
+            ':title': {'S': '{}'.format(item['Title'])},
+            ':year': {'S': '{}'.format(item['Year'])},
+            ':rated': {'S': '{}'.format(item['Rated'])},
+            ':released': {'S': '{}'.format(item['Released'])},
+            ':runtime': {'S': '{}'.format(item['Runtime'])},
+            ':genre': {'S': '{}'.format(item['Genre'])},
+            ':director': {'S': '{}'.format(item['Director'])},
+            ':writer': {'S': '{}'.format(item['Writer'])},
+            ':actors': {'S': '{}'.format(item['Actors'])},
+            ':plot': {'S': '{}'.format(item['Plot'])},
+            ':lang': {'S': '{}'.format(item['Language'])},
+            ':country': {'S': '{}'.format(item['Country'])},
+            ':awards': {'S': '{}'.format(item['Awards'])},
+            ':poster': {'S': '{}'.format(item['Poster'])},
+    #        ':ratings': {'L': item['Ratings'], 'M': item['Ratings'][item]},
+            ':metascore': {'S': '{}'.format(item['Metascore'])},
+            ':imdbrating': {'S': '{}'.format(item['imdbRating'])},
+            ':imdbvotes': {'S': '{}'.format(item['imdbVotes'])},
+            ':content_type': {'S': '{}'.format(item['Type'])},
+            ':dvd': {'S': '{}'.format(item['DVD'])},
+            ':boxoffice': {'S': '{}'.format(item['BoxOffice'])},
+            ':production': {'S': '{}'.format(item['Production'])},
+            ':website': {'S': '{}'.format(item['Website'])},
+        },
+        ReturnValues="UPDATED_NEW"
+        )
 
 
 # Create list of keys in movie response. We'll use this to create our table schema in Dynamo.
@@ -144,6 +208,6 @@ id_list = increment_id("tt0000000", 3)
 url_list = url_generator(id_list, api_url)
 movie_content = request_movie(url_list, api_key)
 movie_attributes = get_movie_attributes(movie_content[0])
-create_table()
-
+#table_name = create_table("movies")
+update_table(movie_content,"movies")
 
