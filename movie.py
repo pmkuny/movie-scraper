@@ -57,10 +57,30 @@ Should we create a Movie class - use movie_attributes as class
 import os
 import requests
 import boto3
+from boto3.dynamodb.conditions import Key
+
 
 api_url = "http://www.omdbapi.com/"
 api_key = os.getenv('API_KEY')
 g_ddb_client = boto3.client("dynamodb")
+dynamodb = boto3.resource('dynamodb')
+
+
+# get latest entry into dynamodb, craft IMDB_ID
+def get_latest_entry(table_name):
+    table = dynamodb.Table(table_name)
+    response = table.query(
+        Select='SPECIFIC_ATTRIBUTES',
+        AttributesToGet=[
+            'imdbID'
+        ],        
+        Limit=1,
+        ScanIndexForward=False,
+        KeyCondtionExpression=Key('imdbID').begins_with('tt')
+    )
+    for item in response:
+        print(**item)
+
 
 # Not implemented yet
 def get_movie_data(start_id, end_id):
@@ -138,6 +158,7 @@ def update_table(content,table_name):
             Country = :country, \
             Awards = :awards, \
             Poster = :poster, \
+            Ratings = :ratings, \
             Metascore = :metascore, \
             imdbRating = :imdbrating, \
             imdbVotes = :imdbvotes, \
@@ -161,7 +182,7 @@ def update_table(content,table_name):
             ':country': {'S': '{}'.format(item['Country'])},
             ':awards': {'S': '{}'.format(item['Awards'])},
             ':poster': {'S': '{}'.format(item['Poster'])},
-    #        ':ratings': {'L': item['Ratings'], 'M': item['Ratings'][item]},
+            ':ratings': {'S': '{}'.format(item['Ratings'][0])},
             ':metascore': {'S': '{}'.format(item['Metascore'])},
             ':imdbrating': {'S': '{}'.format(item['imdbRating'])},
             ':imdbvotes': {'S': '{}'.format(item['imdbVotes'])},
@@ -198,16 +219,16 @@ def url_generator(id_list,url):
 def request_movie(url_list, api_key):
     response_list = []
     for item in url_list:
-        print(item + "&" +'apikey={}'.format(api_key))
+        #print(item + "&" +'apikey={}'.format(api_key))
         response = requests.get(item + "&" +'apikey={}'.format(api_key))
         response_list.append(response.json())
     return response_list
         
 # Main run    
-id_list = increment_id("tt0000000", 3)
+id_list = increment_id("tt0000000", 49)
 url_list = url_generator(id_list, api_url)
 movie_content = request_movie(url_list, api_key)
 movie_attributes = get_movie_attributes(movie_content[0])
 #table_name = create_table("movies")
 update_table(movie_content,"movies")
-
+get_latest_entry("movies")
